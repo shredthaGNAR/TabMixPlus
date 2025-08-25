@@ -337,11 +337,7 @@ var TMP_extensionsCompatibility = {
 
     // override the aioCloseWindow function
     if (typeof aioCloseWindow == "function") {
-      window.aioCloseWindow =
-        Tabmix.isVersion(1260) ?
-          window.BrowserCommands.tryToCloseWindow
-          // eslint-disable-next-line no-undef
-        : BrowserTryToCloseWindow;
+      window.aioCloseWindow = window.BrowserCommands.tryToCloseWindow;
     }
   },
 
@@ -521,7 +517,7 @@ TMP_extensionsCompatibility.treeStyleTab = {
       // update ordinal on previous selected tab when close tab button is on the
       // left side and CloseButtons preference is 4 - close buttons on hover
       // and active tabs
-      let ontabselect = function (event) {
+      let onTabSelect = function (event) {
         let tab =
           gBrowser.tabContainer.getAttribute("closebuttons-side") == "left" &&
           gBrowser.tabContainer.mCloseButtons == 4 &&
@@ -531,11 +527,11 @@ TMP_extensionsCompatibility.treeStyleTab = {
           Tabmix.TST_initTabContentsOrder(tab);
         }
       };
-      gBrowser.tabContainer.addEventListener("TabSelect", ontabselect, true);
+      gBrowser.tabContainer.addEventListener("TabSelect", onTabSelect, true);
       window.addEventListener(
         "unload",
         function onunload() {
-          gBrowser.tabContainer.removeEventListener("TabSelect", ontabselect, true);
+          gBrowser.tabContainer.removeEventListener("TabSelect", onTabSelect, true);
         },
         {once: true}
       );

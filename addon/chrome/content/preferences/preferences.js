@@ -699,12 +699,7 @@ function showFilePicker(mode) {
       fp.defaultExtension = "txt";
       fp.defaultString = "TMPpref";
     }
-    if (Tabmix.isVersion(1250)) {
-      fp.init(window.browsingContext, null, mode);
-    } else {
-      // @ts-expect-error - we don't use it from Firefox 125
-      fp.init(window, null, mode);
-    }
+    fp.init(window.browsingContext, null, mode);
     fp.appendFilters(nsIFilePicker.filterText);
     fp.open(result => {
       if (result === nsIFilePicker.returnOK) {
@@ -800,7 +795,7 @@ function openHelp(helpTopic) {
 function donate() {
   const recentWindow = Tabmix.getTopWin();
   const tabBrowser = recentWindow.gBrowser;
-  const url = "https://www.paypal.com/donate?hosted_button_id=W25388CZ3MNU8";
+  const url = "https://ko-fi.com/M4M71J13A4";
   const where = tabBrowser.selectedTab.isEmpty ? "current" : "tab";
   recentWindow.openTrustedLinkIn(url, where);
 }

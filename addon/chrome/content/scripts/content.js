@@ -220,12 +220,7 @@ var TabmixClickEventHandler = {
       },
       true
     );
-    if (ContentSvc.version(1250)) {
-      global.addEventListener("click", this, {capture: true, mozSystemGroup: true});
-    } else {
-      // @ts-expect-error - Firefox < 1250
-      Services.els.addSystemEventListener(global, "click", this, true);
-    }
+    global.addEventListener("click", this, {capture: true, mozSystemGroup: true});
   },
 
   handleEvent(event) {
@@ -387,6 +382,9 @@ var TabmixClickEventHandler = {
         node?.dataset.isSponsoredLink === "true"
       ) {
         json.globalHistoryOptions = {triggeringSponsoredURL: href};
+        if (ContentSvc.version(1430)) {
+          json.globalHistoryOptions.triggeringSource = "newtab";
+        }
       }
 
       event.preventMultipleActions();
@@ -406,15 +404,10 @@ var TabmixClickEventHandler = {
 /** @type {ContextMenuHandler} */
 var ContextMenuHandler = {
   init(global) {
-    if (ContentSvc.version(1250)) {
-      global.addEventListener("contextmenu", this.prepareContextMenu, {
-        capture: true,
-        mozSystemGroup: true,
-      });
-    } else {
-      // @ts-expect-error - Firefox < 1250
-      Services.els.addSystemEventListener(global, "contextmenu", this.prepareContextMenu, true);
-    }
+    global.addEventListener("contextmenu", this.prepareContextMenu, {
+      capture: true,
+      mozSystemGroup: true,
+    });
   },
 
   prepareContextMenu(event) {

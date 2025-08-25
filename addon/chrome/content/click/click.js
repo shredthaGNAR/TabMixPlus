@@ -16,10 +16,10 @@ var TabmixTabClickOptions = {
     if (!aEvent || !aEvent.originalTarget || !aEvent.target) {
       return;
     }
+    // right click
     if (aEvent.button == 2) {
       return;
     }
-    // right click
 
     var leftClick = aEvent.button === 0;
     if (leftClick && aEvent.detail > 1) {
@@ -334,11 +334,7 @@ var TabmixTabClickOptions = {
         PlacesCommandHook.bookmarkPage();
         break;
       case 26:
-        if (Tabmix.isVersion(1250)) {
-          PlacesCommandHook.bookmarkTabs();
-        } else {
-          PlacesUIUtils.showBookmarkPagesDialog(PlacesCommandHook.uniqueCurrentPages);
-        }
+        PlacesCommandHook.bookmarkTabs();
         break;
       case 27:
         gBrowser.duplicateTabToWindow(aTab, true);
@@ -349,16 +345,16 @@ var TabmixTabClickOptions = {
       case 29: {
         // changed on 2011-03-09 - open new tab when clicked on tabbar
         // or when the tab is locked
-        var opennewTab =
+        const openNewTab =
           clickOutTabs || (aTab.hasAttribute("locked") && !gBrowser.isBlankNotBusyTab(aTab));
         const clickEvent = new MouseEvent("click", {
           bubbles: true,
           cancelable: true,
-          ctrlKey: opennewTab,
+          ctrlKey: openNewTab,
         });
         clickEvent.initEvent("click", true, true);
         middleMousePaste(clickEvent);
-        if (opennewTab) {
+        if (openNewTab) {
           let tab = gBrowser.getTabForLastPanel();
           if (!tab.selected) {
             gBrowser.selectedTab = tab;
@@ -642,7 +638,7 @@ var TabmixContext = {
         return orderA - orderB;
       });
 
-      // Reappend in the original order
+      // append in the original order
       for (const child of children) {
         tabContextMenu.appendChild(child);
       }
@@ -873,12 +869,10 @@ var TabmixContext = {
 
     // Close tab Commands
     showItem("context_closeTab");
-    if (Tabmix.isVersion(1270)) {
-      const showCloseDuplicateTabs = Services.prefs.getBoolPref(
-        "browser.tabs.context.close-duplicate.enabled"
-      );
-      showItem("context_closeDuplicateTabs", {is: showCloseDuplicateTabs});
-    }
+    const showCloseDuplicateTabs = Services.prefs.getBoolPref(
+      "browser.tabs.context.close-duplicate.enabled"
+    );
+    showItem("context_closeDuplicateTabs", {is: showCloseDuplicateTabs});
     showItem("context_closeTabOptions");
 
     //  ---------------- menuseparator ---------------- //
@@ -1039,47 +1033,57 @@ var TabmixContext = {
     }
   },
 
+  contextMenu_initialized: false,
   _prepareContextMenu() {
-    if (!nsContextMenu || nsContextMenu._tabmix_initialized) {
+    if (!nsContextMenu || this.contextMenu_initialized) {
       return;
     }
 
-    nsContextMenu._tabmix_initialized = true;
+    this.contextMenu_initialized = true;
 
     let sep = this.$id("tm-content-miscSep");
     sep.parentNode?.insertBefore(sep, this.$id("tm-content-closetab"));
 
-    const lazy = {};
-    if (Tabmix.isVersion(1290)) {
-      const modules = {
-        ContextualIdentityService: "resource://gre/modules/ContextualIdentityService.sys.mjs",
-        PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
-      };
-      if (Tabmix.isVersion(1400)) {
-        // @ts-ignore
-        modules.LinkPreview = "moz-src:///browser/components/genai/LinkPreview.sys.mjs";
+    let sandbox;
+    if (nsContextMenu._tabmix_initialized) {
+      sandbox = Tabmix.getSandbox(nsContextMenu);
+    } else {
+      const lazy = {};
+      if (Tabmix.isVersion(1290)) {
+        const modules = {
+          ContextualIdentityService: "resource://gre/modules/ContextualIdentityService.sys.mjs",
+          PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
+        };
+        if (Tabmix.isVersion(1400)) {
+          // @ts-ignore
+          modules.LinkPreview = "moz-src:///browser/components/genai/LinkPreview.sys.mjs";
+        }
+        ChromeUtils.defineESModuleGetters(lazy, modules);
       }
-      ChromeUtils.defineESModuleGetters(lazy, modules);
-    }
 
-    const sandbox = Tabmix.getSandbox(nsContextMenu, {scope: {lazy}});
-    // hide open link in window in single window mode
-    Tabmix.changeCode(nsContextMenu.prototype, "nsContextMenu.prototype.initOpenItems", {
-      sandbox,
-    })
-      ._replace(/context-openlink",/, "$& !window.Tabmix.singleWindowMode &&")
-      ._replace(
-        /context-openlinkprivate",/,
-        "$& (!window.Tabmix.singleWindowMode || !isWindowPrivate) &&"
+      sandbox = Tabmix.getSandbox(nsContextMenu, {scope: {lazy}});
+
+      // hide open link in window in single window mode
+      Tabmix.changeCode(nsContextMenu.prototype, "nsContextMenu.prototype.initOpenItems", {
+        sandbox,
+      })
+        ._replace(/context-openlink",/, "$& !window.Tabmix.singleWindowMode &&")
+        ._replace(
+          /context-openlinkprivate",/,
+          "$& (!window.Tabmix.singleWindowMode || !isWindowPrivate) &&"
+        )
+        .toCode();
+
+      Tabmix.changeCode(
+        nsContextMenu.prototype,
+        "nsContextMenu.prototype.openLinkInPrivateWindow",
+        {
+          sandbox,
+        }
       )
-      .toCode();
-
-    Tabmix.changeCode(nsContextMenu.prototype, "nsContextMenu.prototype.openLinkInPrivateWindow", {
-      sandbox,
-    })
-      ._replace(
-        /(?:this\.window\.)?openLinkIn\(\n*\s*this\.linkURL,\n*\s*"window",/,
-        `var [win, where] = [${Tabmix.isVersion(1290) ? "this.window" : "window"}, "window"];
+        ._replace(
+          /(?:this\.window\.)?openLinkIn\(\n*\s*this\.linkURL,\n*\s*"window",/,
+          `var [win, where] = [${Tabmix.isVersion(1290) ? "this.window" : "window"}, "window"];
       if (win.Tabmix.singleWindowMode) {
         let pbWindow = BrowserWindowTracker.getTopWindow({ private: true });
         if (pbWindow) {
@@ -1088,8 +1092,11 @@ var TabmixContext = {
         }
       }
       win.openLinkIn(this.linkURL, where,`
-      )
-      .toCode();
+        )
+        .toCode();
+
+      nsContextMenu._tabmix_initialized = true;
+    }
 
     Tabmix.changeCode(nsContextMenu.prototype, "nsContextMenu.prototype.openLinkInTab", {sandbox})
       ._replace(
@@ -1460,13 +1467,7 @@ var TabmixAllTabs = {
         aButton.id == "tabmix-alltabs-button" ||
         (aButton.parentNode && aButton.parentNode.id == "allTabsMenu-allTabsView")
       ) {
-        if (Tabmix.isVersion(1260)) {
-          window.BrowserCommands.closeTabOrWindow();
-        } else {
-          // @ts-expect-error - BrowserCloseTabOrWindow removed in Firefox 126
-          // eslint-disable-next-line no-undef
-          BrowserCloseTabOrWindow();
-        }
+        window.BrowserCommands.closeTabOrWindow();
         aButton.setAttribute("afterctrlclick", true);
       }
     }
@@ -1672,7 +1673,10 @@ var TabmixAllTabs = {
       aMenuitem.setAttribute("busy", aTab.getAttribute("busy") ?? "");
       aMenuitem.removeAttribute("image");
     } else {
-      aMenuitem.setAttribute("image", gBrowser.getIcon(aTab));
+      const icon = gBrowser.getIcon(aTab);
+      if (icon) {
+        aMenuitem.setAttribute("image", icon);
+      }
       aMenuitem.removeAttribute("busy");
     }
 

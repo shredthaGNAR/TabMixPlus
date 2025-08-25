@@ -35,7 +35,7 @@ overlay   chrome://browser/content/places/places.xhtml           chrome://tabmix
  * restartApplication: Restarts the application, keeping it in
  * safe mode if it is already in safe mode.
  */
-/** @type {Bootstarp.restartApplication} */
+/** @type {Bootstrap.restartApplication} */
 function restartApplication() {
   const cancelQuit = Cc["@mozilla.org/supports-PRBool;1"].createInstance(Ci.nsISupportsPRBool);
   Services.obs.notifyObservers(cancelQuit, "quit-application-requested", "restart");
@@ -54,7 +54,7 @@ function restartApplication() {
 
 let invalidateCachesOnRestart = false;
 
-/** @type {Bootstarp.showRestartNotification} */
+/** @type {Bootstrap.showRestartNotification} */
 function showRestartNotification(verb, window) {
   if (!window.gBrowser.selectedBrowser) {
     return;
@@ -109,14 +109,14 @@ async function updateAddon(id) {
   }
 }
 
-/** @type {Bootstarp.install} */
+/** @type {Bootstrap.install} */
 async function install(data) {
   await updateAddon(data.id);
 }
 
 function uninstall() {}
 
-/** @type {Bootstarp.startup} */
+/** @type {Bootstrap.startup} */
 async function startup(data, reason) {
   /** @type {any} */
   const lazy = {};
@@ -162,54 +162,71 @@ async function startup(data, reason) {
       if (document.documentElement) {
         const isBrowser =
           document.documentElement.getAttribute("windowtype") === "navigator:browser";
-        const isOverflow =
-          lazy.isVersion(1190) ?
-            isBrowser && win.gBrowser.tabContainer.hasAttribute("overflow")
-          : isBrowser && win.gBrowser.tabContainer.getAttribute("overflow") === "true";
-        const promiseOverlayLoaded = Overlays.load(chromeManifest, win);
+        const isOverflow = isBrowser && win.gBrowser.tabContainer.hasAttribute("overflow");
+        const promiseOverlayLoaded = Promise.withResolvers();
         if (isBrowser) {
-          ScriptsLoader.initForWindow(win, promiseOverlayLoaded, {
+          ScriptsLoader.initForWindow(win, promiseOverlayLoaded.promise, {
             chromeManifest,
             isOverflow,
             isEnabled: true,
           });
         }
+        Overlays.load(chromeManifest, win, promiseOverlayLoaded);
       }
     }
   }
 
   /** @type {DocumentObserver} */
+  const documentInsertedObserver = {
+    observe(document) {
+      if (
+        document.ownerGlobal &&
+        document.documentElement?.getAttribute("windowtype") === "navigator:browser"
+      ) {
+        const win = document.ownerGlobal;
+        document.addEventListener(
+          "DOMContentLoaded",
+          () => {
+            const isSingleWindowMode = Services.prefs.getBoolPref("extensions.tabmix.singleWindow");
+            if (isSingleWindowMode && lazy.SingleWindowModeUtils.newWindow(win)) {
+              win._tabmix_windowIsClosing = true;
+              return;
+            }
+
+            win._tabmix_PlacesUIUtils_openTabset = _tabmix_PlacesUIUtils_openTabset;
+
+            const promiseOverlayLoaded = Promise.withResolvers();
+            ScriptsLoader.initForWindow(win, promiseOverlayLoaded.promise);
+            Overlays.load(chromeManifest, win, promiseOverlayLoaded);
+          },
+          {once: true}
+        );
+      }
+    },
+  };
+
+  /** @type {DocumentObserver} */
   const documentObserver = {
     observe(document) {
       if (document.documentElement && document.ownerGlobal) {
-        const isSingleWindowMode = Services.prefs.getBoolPref("extensions.tabmix.singleWindow");
         const isBrowser =
           document.documentElement.getAttribute("windowtype") === "navigator:browser";
-        const win = document.ownerGlobal;
-
-        let stopInitialization;
-        if (isBrowser && isSingleWindowMode) {
-          stopInitialization = lazy.SingleWindowModeUtils.newWindow(win);
-        }
-
-        if (stopInitialization) {
-          win._tabmix_windowIsClosing = true;
-        } else {
-          const promiseOverlayLoaded = Overlays.load(chromeManifest, win);
-          if (isBrowser) {
-            win._tabmix_PlacesUIUtils_openTabset = _tabmix_PlacesUIUtils_openTabset;
-            ScriptsLoader.initForWindow(win, promiseOverlayLoaded);
-          }
+        if (!isBrowser) {
+          const win = document.ownerGlobal;
+          Overlays.load(chromeManifest, win);
         }
       }
     },
   };
 
   // eslint-disable-next-line mozilla/balanced-observers
+  Services.obs.addObserver(documentInsertedObserver, "initial-document-element-inserted");
+
+  // eslint-disable-next-line mozilla/balanced-observers
   Services.obs.addObserver(documentObserver, "chrome-document-loaded");
 }
 
-/** @type {Bootstarp.shutdown} */
+/** @type {Bootstrap.shutdown} */
 function shutdown(data, reason) {
   const window = Services.wm.getMostRecentWindow("navigator:browser");
   if (reason === ADDON_DISABLE) {

@@ -217,7 +217,7 @@ export const AutoReload = {
     }
   },
 
-  /** called from popup and from tabclick options */
+  /** called from popup and from tab click options */
   toggle(aTab) {
     if (aTab.autoReloadEnabled) {
       this._disable(aTab);
@@ -432,7 +432,7 @@ function doReloadTab(window, browser, tab, data) {
     }
     browser.tabmix_allowLoad = true;
     browser.loadURI(url, {
-      flags: loadFlags,
+      [TabmixSvc.version(1430) ? "loadFlags" : "flags"]: loadFlags,
       referrerInfo,
       triggeringPrincipal: browser.contentPrincipal,
       postData,

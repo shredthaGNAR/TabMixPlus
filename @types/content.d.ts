@@ -19,9 +19,12 @@ type ClickJSONData = {
   originPrincipal: nsIPrincipal;
   originStoragePrincipal: nsIPrincipal;
   tabmixContentClick: ContentClickResult;
-  globalHistoryOptions: {triggeringSponsoredURL: string};
+  globalHistoryOptions: {
+    triggeringSource?: string;
+    triggeringSponsoredURL: string;
+  };
 
-  /** @deprecated - use policyContainer */
+  /** @deprecated replaced with policyContainer in firefox 142 */
   csp: string;
 };
 type LinkNode = ContentClickLinkElement | LinkNodeUtilsModule.WrappedNode | null;

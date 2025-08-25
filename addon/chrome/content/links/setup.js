@@ -20,11 +20,7 @@ Tabmix.linkHandling_init = function TMP_TBP_init() {
 };
 
 Tabmix.set_BrowserOpenTab = function () {
-  if (this.isVersion(1260)) {
-    window.BrowserCommands.openTab = TMP_BrowserOpenTab;
-  } else {
-    window.BrowserOpenTab = TMP_BrowserOpenTab;
-  }
+  window.BrowserCommands.openTab = TMP_BrowserOpenTab;
   Tabmix.BrowserOpenTab = TMP_BrowserOpenTab;
 };
 
@@ -76,17 +72,10 @@ Tabmix.beforeBrowserInitOnLoad = function () {
 };
 
 // this must run before all
-Tabmix.beforeStartup = function TMP_beforeStartup(tabBrowser, aTabContainer) {
+Tabmix.beforeStartup = function TMP_beforeStartup(tabBrowser) {
   if (typeof tabBrowser == "undefined") {
     tabBrowser = gBrowser || window._gBrowser;
   }
-
-  // we need to add our keys before browser.xhtml loads our overlay,
-  // and look for our Shortcuts
-  const {Shortcuts} = ChromeUtils.importESModule(
-    "chrome://tabmix-resource/content/Shortcuts.sys.mjs"
-  );
-  Shortcuts.onWindowOpen(window);
 
   // return true if all tabs in the window are blank
   tabBrowser.isBlankWindow = function () {
@@ -147,29 +136,6 @@ Tabmix.beforeStartup = function TMP_beforeStartup(tabBrowser, aTabContainer) {
     return this.getTabForBrowser(browser);
   };
 
-  var tabContainer =
-    aTabContainer || tabBrowser.tabContainer || document.getElementById("tabbrowser-tabs");
-
-  // Firefox sessionStore and session manager extension start to add tab before our onWindowOpen run
-  // so we initialize this before start
-  // mTabMaxWidth not exist from firefox 4.0
-  var max = Math.max(16, Services.prefs.getIntPref("browser.tabs.tabMaxWidth"));
-  var min = Math.max(16, Services.prefs.getIntPref("browser.tabs.tabMinWidth"));
-  if (max < min) {
-    Services.prefs.setIntPref("browser.tabs.tabMaxWidth", min);
-    Services.prefs.setIntPref("browser.tabs.tabMinWidth", max);
-    [min, max] = [max, min];
-  }
-  tabContainer.mTabMaxWidth = max;
-  tabContainer.mTabMinWidth = min;
-  TabmixTabbar.widthFitTitle = !TabmixSvc.isZen && this.prefs.getBoolPref("flexTabs") && max != min;
-  if (TabmixTabbar.widthFitTitle) {
-    this.setItem(tabContainer, "widthFitTitle", true);
-    if (Tabmix.isVersion(1310)) {
-      Tabmix.setItem(tabContainer.arrowScrollbox, "widthFitTitle", true);
-    }
-  }
-
   var tabscroll = this.prefs.getIntPref("tabBarMode");
   if (document.documentElement.getAttribute("chromehidden")?.includes("toolbar")) {
     tabscroll = 1;
@@ -185,7 +151,7 @@ Tabmix.beforeStartup = function TMP_beforeStartup(tabBrowser, aTabContainer) {
   }
   TabmixTabbar.scrollButtonsMode = tabscroll;
 
-  if (!SessionStore.getWindowState(window).windows[0]?._restoring) {
+  if (window.__SSi && !SessionStore.getWindowState(window).windows[0]?._restoring) {
     TabmixTabbar.flowing =
       ["singlebar", "scrollbutton", "multibar", "scrollbutton"][tabscroll] || "scrollbutton";
   }

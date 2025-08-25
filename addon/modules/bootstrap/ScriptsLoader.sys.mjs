@@ -1,31 +1,36 @@
 /** Load Tabmix scripts to navigator:browser window. */
+import {isVersion} from "chrome://tabmix-resource/content/BrowserVersion.sys.mjs";
 
 /** @type {ScriptsLoaderModule.Lazy} */ // @ts-ignore
 const lazy = {};
 
 ChromeUtils.defineESModuleGetters(lazy, {
-  CustomizableUI: "resource:///modules/CustomizableUI.sys.mjs",
+  CustomizableUI:
+    isVersion(1430) ?
+      "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs"
+    : "resource:///modules/CustomizableUI.sys.mjs",
+  DynamicRules: "chrome://tabmix-resource/content/DynamicRules.sys.mjs",
   PrivateBrowsingUtils: "resource://gre/modules/PrivateBrowsingUtils.sys.mjs",
   SessionStore: "resource:///modules/sessionstore/SessionStore.sys.mjs",
-  isVersion: "chrome://tabmix-resource/content/BrowserVersion.sys.mjs",
   Overlays: "chrome://tabmix-resource/content/bootstrap/Overlays.sys.mjs",
 });
 
+const isZen = Services.appinfo.name == "Zen";
+
 /** stylesheets and scripts for navigator:browser */
 const CSS_URLS = [
-  lazy.isVersion(1190) ?
-    "chrome://tabmixplus/content/overlay/browser.css"
-  : "chrome://tabmixplus/content/overlay/browser_before_119.css",
-  lazy.isVersion(1260) ?
-    "chrome://tabmixplus/skin/app_version/all/themeStyles.css"
-  : "chrome://tabmixplus/skin/app_version/all/themeStyles_before_126.css",
+  "chrome://tabmixplus/content/overlay/browser.css",
+  "chrome://tabmixplus/skin/app_version/all/themeStyles.css",
   "chrome://tabmixplus/content/overlay/multirow.css",
   "chrome://tabmixplus/skin/general.css",
   "chrome://tabmixplus/skin/tab.css",
+  isVersion(1430) ?
+    "chrome://tabmixplus/skin/menuitem-icons.css"
+  : "chrome://tabmixplus/skin/menuitem-icons-before-143.css",
   "chrome://tabmix-os/skin/browser.css",
 ];
 
-if (Services.appinfo.name == "Zen") {
+if (isZen) {
   CSS_URLS.push("chrome://tabmixplus/content/overlay/zen_browser.css");
 }
 
@@ -62,6 +67,7 @@ export const ScriptsLoader = {
     this._addCloseButton();
     this._loadCSS(window);
     this._loadScripts(window, promiseOverlayLoaded);
+    this._initTabsStyle(window);
     this._addListeners(window);
     if (params?.isEnabled && params.chromeManifest) {
       this._updateAfterEnabled(window, params);
@@ -105,6 +111,55 @@ export const ScriptsLoader = {
     window.Tabmix.promiseOverlayLoaded = promiseOverlayLoaded;
 
     Services.scriptloader.loadSubScript("chrome://tabmixplus/content/click/listeners.js", window);
+
+    // we need to add our keys before browser.xhtml loads our overlay,
+    // and look for our Shortcuts
+    const {Shortcuts} = ChromeUtils.importESModule(
+      "chrome://tabmix-resource/content/Shortcuts.sys.mjs"
+    );
+    Shortcuts.onWindowOpen(window);
+  },
+
+  _initTabsStyle(window) {
+    const {document, Tabmix, TabmixTabbar} = window;
+
+    const tabContainer = document.getElementById("tabbrowser-tabs");
+
+    // set widthFitTitle
+    let max = Math.max(16, Services.prefs.getIntPref("browser.tabs.tabMaxWidth"));
+    let min = Math.max(16, Services.prefs.getIntPref("browser.tabs.tabMinWidth"));
+    if (max < min) {
+      Services.prefs.setIntPref("browser.tabs.tabMaxWidth", min);
+      Services.prefs.setIntPref("browser.tabs.tabMinWidth", max);
+      [min, max] = [max, min];
+    }
+    tabContainer.mTabMaxWidth = max;
+    tabContainer.mTabMinWidth = min;
+    TabmixTabbar.widthFitTitle = !isZen && Tabmix.prefs.getBoolPref("flexTabs") && max != min;
+    if (TabmixTabbar.widthFitTitle) {
+      Tabmix.setItem(tabContainer, "widthFitTitle", true);
+      if (Tabmix.isVersion(1310)) {
+        Tabmix.setItem(tabContainer.arrowScrollbox, "widthFitTitle", true);
+      }
+    }
+
+    // init DynamicRules
+    lazy.DynamicRules.init(window);
+
+    const tabs = tabContainer.querySelectorAll(".tabbrowser-tab");
+    tabs.forEach(tab => Tabmix.setTabStyle(tab));
+
+    // hide close tab button on single tab
+    // see gBrowser.tabContainer._updateCloseButtons at tablib.js
+    if (
+      tabs.length === 1 &&
+      (Tabmix.tabsUtils._keepLastTab ||
+        (!Services.prefs.getBoolPref("browser.tabs.closeWindowWithLastTab") &&
+          (!tabs[0]?.linkedBrowser || tabs[0]?.isEmpty)))
+    ) {
+      tabContainer.setAttribute("closebuttons", "noclose");
+      tabContainer.removeAttribute("closebuttons-hover");
+    }
   },
 
   _addListeners(window) {

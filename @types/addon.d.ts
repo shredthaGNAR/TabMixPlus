@@ -93,13 +93,13 @@ interface Window {
   duplicateTabIn: (aTab: Tab, where: "tab" | "tabshifted" | "window", delta: number) => void;
   FillHistoryMenu(event: Event): void;
   gBrowser: MockedGeckoTypes.TabBrowser;
-  getComputedStyle(elt: Element | Tab, pseudoElt?: string | null): CSSStyleDeclaration | null;
+  getComputedStyle(elt: Element | MockedGeckoTypes.TabbrowserElement, pseudoElt?: string | null): CSSStyleDeclaration | null;
   gMiddleClickNewTabUsesPasteboard: boolean;
   gFissionBrowser: boolean;
   gMultiProcessBrowser: boolean;
   gTMPprefObserver: gTMPprefObserver;
   gURLBar: gURLBar;
-  isBlankPageURL: (aURL: string) => boolean;
+  isBlankPageURL: (aURL: string | null) => boolean;
   lazy?: Record<string, unknown>;
   OpenBrowserWindow: (options: {private?: boolean; [key: string]: unknown}) => void;
   openLinkIn: (url: string | null | undefined, where: WhereToOpen, params?: Params) => void;
@@ -160,9 +160,6 @@ interface Window {
 
   /** Floorp */
   gFloorpObservePreference: (prefName: string, callback: () => void) => void;
-
-  /** @deprecated - removed from firefox on version 126 */
-  BrowserOpenTab: (options: {event: MouseEvent; url: string}) => void;
 }
 
 /* Tabmix modules */
@@ -236,8 +233,8 @@ interface TabmixDNDObserver {
   getEventTarget(event: DragEvent): AriaFocusableItem | MockedGeckoTypes.MozTabbrowserTabGroup | undefined;
   isDropBefore(event: DragEvent, dropElement: AriaFocusableItem): boolean;
   getDragType(sourceNode: DraggedSourceNode): {dragType: number; tab: DraggedElement};
-  getDropIndicatorMarginX(draggedTab: DraggedElement, newIndex: number, dropBefore: boolean, itemRect: DOMRect, rect: DOMRect, defaultMargin: number): number;
-  getDropIndicatorMarginY(ind: HTMLElement, dropElement: AriaFocusableItem, rect: DOMRect): number;
+  getDropIndicatorMarginX(draggedTab: DraggedElement, dropElement: AriaFocusableItem, newIndex: number, dropBefore: boolean, itemRect: DOMRect, rect: DOMRect, defaultMargin: number): number;
+  getDropIndicatorMarginY(ind: HTMLElement, dropElement: AriaFocusableItem, rect: DOMRect, draggedTab: Tab): number;
   isLastTabInRow(dropTab: Tab | undefined, dragOverElement: AriaFocusableItem | undefined): boolean;
   clearDragmark(): void;
   getSourceNode(aDataTransfer: DataTransfer): HTMLLinkElement | Tab | null;
@@ -275,7 +272,7 @@ declare namespace TabmixArrowScrollboxNS {
     _verticalMode: boolean;
     blockUnderflow: boolean;
     firstTabInRowMargin: number;
-    firstVisible: {tab: Tab | HTMLElement | null; x: number; y: number};
+    firstVisible: {tab: Tab | MockedGeckoTypes.GroupLabelContainer | null; x: number; y: number};
     firstVisibleRow: number;
     isMultiRow: boolean;
     minOffset: number;
@@ -331,6 +328,7 @@ interface QuerySelectorMap {
   ".panel-subview-body": ClosedObjectsUtils.PopupElement;
   "[tabmix_selectedID]": Tab;
   "[tabmix-firstTabInRow]": Tab | MockedGeckoTypes.GroupLabelContainer;
+  ".tabbrowser-tab": Tab;
 }
 
 declare namespace TabmixEventListenerNS {
@@ -607,7 +605,7 @@ interface TabmixTabbar {
   updateScrollStatus(delay?: boolean): void;
   getTabsPosition(): "tabsonbottom" | "customtitlebar";
   _handleResize(): void;
-  inSameRow(tab1: Tab | MockedGeckoTypes.MozTextLabelContainer | undefined, tab2: Tab | HTMLButtonElement | MockedGeckoTypes.MozTextLabelContainer | null | undefined): boolean;
+  inSameRow(tab1: MockedGeckoTypes.TabbrowserElement | undefined, tab2: MockedGeckoTypes.TabbrowserElement | null | undefined): boolean;
   setFirstTabInRow(): void;
   removeShowButtonAttr(): void;
 }
@@ -699,7 +697,7 @@ interface PrivateMethods {
   updateScrollButtonsDisabledState: TabmixArrowScrollboxNS.ArrowScrollbox["_updateScrollButtonsDisabledState"];
 }
 
-type ElementTypesExtended = ElementTypes | TabmixAllTabsNS.PopupElement;
+type ElementTypesExtended = ElementTypes | TabmixAllTabsNS.PopupElement | MockedGeckoTypes.ArrowScrollbox | MockedGeckoTypes.BrowserTab;
 
 interface TabmixGlobal {
   tablib: typeof Tablib;
